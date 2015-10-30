@@ -1,0 +1,4 @@
+language: php
+rvm:
+  -1.0.0
+script: bundle exec rspec spec
