@@ -26,7 +26,7 @@ class secache{
     var $schema_struct = array('size','free','lru_head','lru_tail','hits','miss'); 
     var $ver = '$Rev: 3 $';
     var $name = '系统默认缓存(文件型)';
-
+    var $idx_node_base = null;
     function workat($file){
 
         $this->_file = $file.'.php';
