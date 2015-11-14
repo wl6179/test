@@ -1,0 +1,1390 @@
+<!DOCTYPE Chris.Wang-File>
+<!--LastNote:32-->
+<HTML>
+<HEAD>
+<meta content="text/html;charset=UTF-8" http-equiv="Content-Type">
+<meta name="generator" content="Chris.Wang">
+<TITLE></TITLE>
+</HEAD>
+<BODY>
+<DL>
+<DT>Chris.Wang.DBA.COKESHOW</DT>
+<!--property:icon_internal=lock-->
+<!--property:date_created=1300076378-->
+<!--property:date_modified=1357463017-->
+<!--property:expanded-->
+<DD>
+<DL>
+<DT>Redhat</DT>
+<!--property:icon_internal=lock-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1357464033-->
+<!--property:date_modified=1357464033-->
+<!--property:expanded-->
+<DD>
+<DL>
+<DT>5</DT>
+<!--property:icon_internal=help-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1357483780-->
+<!--property:date_modified=1357483780-->
+<!--property:expanded-->
+<DD>
+<DL>
+<DT>存储技术</DT>
+<!--property:icon_internal=folder-->
+<!--property:date_created=1363157141-->
+<!--property:date_modified=1363157141-->
+<DD>
+<DL>
+<DT>IPSAN</DT>
+<!--property:icon_internal=lock-->
+<!--property:date_created=1363157192-->
+<!--property:date_modified=1363157192-->
+<!--property:expanded-->
+<DD>
+<DL>
+<DT>标准化作业</DT>
+<!--property:icon_internal=new_dir-->
+<!--property:date_created=1363157213-->
+<!--property:date_modified=1363157213-->
+<DD>
+<DL>
+<DT>创建存储01------IP-SAN-01-nodeX端配置指南~之~标准配置新建网络存储！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157464-->
+<DD>
+前提配备：<BR>
+        各有第二块硬盘，即在真机中为其创建一个独立 Lv 并配置成 虚机的 第二块硬盘；( 也可以是虚机的一块 md0 阵列块设备等 ) <BR>
+	[root@node0 ~]# 	lvcreate -L 2000M -n rhel5_5-3-sda /dev/vg001<BR>
+	[root@node0 ~]# 	lvcreate -L 2000M -n rhel5_5-4-sda /dev/vg001<BR>
+	[root@node0 ~]# 	cd /dev/vg001/rhel5_5-3-sda<BR>
+						                    rhel5_5-4-sda<BR>
+        然后编辑虚拟机 node1&amp;2 配置文件,  各新添一块硬盘 /dev/sda :<BR>
+	vim /etc/xen/rhel5_5-3<BR>
+		.......	<BR>
+	vim /etc/xen/rhel5_5-4<BR>
+                .......<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+都安装上 target 软件（scsi目标）并配置( 共享出一个分区成网络存储 ):<BR>
+	安装软件:<BR>
+	yum install scsi-target-utils<BR>
+	<BR>
+	配置软件---&gt;共享存储为网络存储 [ 并起名为 node1 或 2 ]:<BR>
+	vim /etc/tgt/targets.conf<BR>
+	编辑文本:<BR>
+&lt;target iqn.2012-09.com.uplooking:node1.target1&gt;	#node1要唯一;<BR>
+        backing-store /dev/sda			#真机创建的一个 Lv 所模拟出来的当前虚机 nodeX 的一块硬盘( 分区 ) ;( 它用真机的纯 Lv 创建, 非快照; )<BR>
+        write-cache off<BR>
+        vendor_id node1						#node1 要唯一; （供应商）<BR>
+        product_id storage1<BR>
+        initiator-address 192.168.122.10		#表明本网络存储要共享给谁, 哪个目标可以享用;（initiator - 发起人，创始者；启动程序；引爆器）<BR>
+        initiator-address 192.168.122.20		#共享目标; ( 共享给 server1&amp;2 )<BR>
+&lt;/target&gt;<BR>
+<BR>
+各 nodeX 均要启动 tgtd 服务, 开启共享网络存储服务, 将刚刚设置的网络存储 &quot;推&quot; 出去:<BR>
+	service tgtd start<BR>
+<BR>
+<BR>
+<BR>
+-------------------------------test--------------------------------<BR>
+查看检测一下是否正常运行监听网络, 为共享作准备:<BR>
+	netstat -tunpl | grep tgtd<BR>
+<BR>
+查看本 nodeX 的 [网络存储] 是否通过 target 软件正常的共享了出去了~:<BR>
+	tgt-admin --show<BR>
+	<BR>
+	Target 1: iqn.2012-09.com.uplooking:node1.target1<BR>
+    System information:<BR>
+        Driver: iscsi<BR>
+        State: ready<BR>
+    I_T nexus information:<BR>
+        I_T nexus: 1<BR>
+            Initiator: iqn.1994-05.com.redhat:c77d1c67a2<BR>
+            Connection: 0<BR>
+                IP Address: 192.168.122.10<BR>
+        I_T nexus: 2<BR>
+            Initiator: iqn.1994-05.com.redhat:79abab108ecb<BR>
+            Connection: 0<BR>
+                IP Address: 192.168.122.20<BR>
+    LUN information:<BR>
+        LUN: 0<BR>
+            Type: controller<BR>
+            SCSI ID: IET     00010000<BR>
+            SCSI SN: beaf10<BR>
+            Size: 0 MB<BR>
+            Online: Yes<BR>
+            Removable media: No<BR>
+            Backing store type: rdwr<BR>
+            Backing store path: None<BR>
+        LUN: 1<BR>
+            Type: disk<BR>
+            SCSI ID: IET     00010001<BR>
+            SCSI SN: beaf11<BR>
+            Size: 2097 MB<BR>
+            Online: Yes<BR>
+            Removable media: No<BR>
+            Backing store type: rdwr<BR>
+            Backing store path: /dev/sda<BR>
+    Account information:<BR>
+    ACL information:<BR>
+        192.168.122.10<BR>
+        192.168.122.20<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+<BR>
+各 nodeX 均要让 tgtd 共享网络存储的服务能够长期自启动:<BR>
+	chkconfig tgtd on<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建存储01------IP-SAN-02-serverX端配置指南01~之~发现与登录新网络存储！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157669-->
+<DD>
+首先<BR>
+均要安装软件 iscsi 协议及通讯机制 :									<BR>
+	yum install iscsi-initiator-utils		# iscsi  （initiator - 发起人，创始者；启动程序；引爆器） ;<BR>
+<BR>
+<BR>
+-------------------------------test--------------------------------<BR>
+均要发现 IP-SAN;<BR>
+	iscsiadm -m discovery -t sendtargets -p 192.168.122.100:3260<BR>
+	iscsiadm -m discovery -t sendtargets -p 192.168.122.200:3260<BR>
+	正常应该报错;<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+启动 iscsi 通讯协议服务;<BR>
+	service iscsid start			                # iscsi 引爆器;<BR>
+<BR>
+<BR>
+-------------------------------test--------------------------------<BR>
+再来一次, 将会发现两个网络存储;<BR>
+-------------------------------test--------------------------------<BR>
+	<BR>
+<BR>
+均开始 [登录] 这两个网络存储 ;<BR>
+	iscsiadm -m node -T iqn.2012-09.com.uplooking:node1.target1 -l<BR>
+	iscsiadm -m node -T iqn.2012-02.com.uplooking:node2.target1 -l<BR>
+		<BR>
+	<BR>
+-------------------------------test--------------------------------<BR>
+先查看是否映射模拟出新的磁盘块（IP-SAN架构的特长！）设备； <BR>
+        fdisk -l 查看~<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+均要让 iscsi 通讯协议服务能长期启动:<BR>
+	chkconfig iscsid on<BR>
+<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建存储01------IP-SAN-02-serverX端配置指南02~之~用Udev构建稳定软链接！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157673-->
+<DD>
+软链接 udev 的作用：<BR>
+        只需要在 serverX 端配置刚映射过来的网络存储块设备~ 令其不再受启动顺序的影响!<BR>
+<BR>
+均读取刚才新登录上的SAN网络存储, 所映射本机的块磁盘e信息:<BR>
+	udevinfo -a -p /sys/block/sda/                    #把信息从内核里读出来, 会读出 node1&amp;2 的区分编号;<BR>
+	udevinfo -a -p /sys/block/sdb/		<BR>
+<BR>
+均根据映射的块磁盘的编号信息, 新增设备 [软链接] 的配置:<BR>
+	cd /etc/udev/rules.d/<BR>
+        vim 90-iscsi-new.rules<BR>
+		编辑文本:<BR>
+		SUBSYSTEM==&quot;block&quot;, SYSFS{size}==&quot;4096000&quot;, SYSFS{model}==&quot;storage1&quot;, SYSFS{vendor}==&quot;node1&quot;, SYMLINK+=&quot;iscsi/node1-disk&quot;<BR>
+		    SUBSYSTEM==&quot;block&quot;, SYSFS{size}==&quot;4096000&quot;, SYSFS{model}==&quot;storage1&quot;, SYSFS{vendor}==&quot;node2&quot;, SYMLINK+=&quot;iscsi/node2-disk&quot;<BR>
+	<BR>
+软链接立刻生效:<BR>
+	start_udev<BR>
+	<BR>
+查看一下 udev 刚才定义的 [软连接]:<BR>
+	ll /dev/iscsi/node1&amp;2-disk<BR>
+		总计 0<BR>
+		lrwxrwxrwx 1 root root 6 09-11 16:46 node1-disk -&gt; ../sdb            #创建了: 对网络存储的映射到当前本机 serverX 中的设备 ../sda( /dev/sda ) 的 [软连接] node1-disk 和 node2-disk!<BR>
+		lrwxrwxrwx 1 root root 6 09-11 16:46 node2-disk -&gt; ../sda            #注意, Udev 软链接 是根据 编号 来映射固定的网络存储设备的, 是不会改变的!!<BR>
+	<BR>
+拷贝配置给另一台 serverX,  令其也拥有 udev 配置 :<BR>
+		scp 90-iscsi-new.rules 192.168.122.20:/etc/udev/rules.d/<BR>
+		同时, 也在 server2 上执行一下初始化软链接并立刻生效:<BR>
+		        start_udev<BR>
+	<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建存储01------IP-SAN-02-serverX端配置指南03~之~创建LVM并同步且mount上使用！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157636-->
+<DD>
+利用 Udev 创建的稳定指向的 软链接 来创建可扩展的 LVM！<BR>
+<BR>
+在前端 serverX 上进行集成 LVM:<BR>
+        pvcreate /dev/iscsi/node1-disk	#将 IP-SAN 网络存储( 通过 tgtd 共享,  iscsi 接收的所映射出来 [块设备] 之 [*软连接] ) 虚拟化成本机的 Pv;<BR>
+	pvcreate /dev/iscsi/node2-disk	#将不变的软连接e块设备( 网络存储映射) 虚拟化成 Pv;<BR>
+		<BR>
+	vgcreate vgiscsi /dev/iscsi/node1-disk /dev/iscsi/node2-disk		#创建出 Vg ,可以囊括 2 个网络存储; ( 将来还可以+追加若干个新网络存储都没有问题！ ) <BR>
+		<BR>
+	lvcreate -L 2000M -n lviscsi vgiscsi			#划分出 Vg 中的一部分 2G 作为 Lv 虚拟分区使用;<BR>
+		<BR>
+-------------------------------test--------------------------------<BR>
+        server1 格式化并挂载新划分的 Lv:<BR>
+		mkfs.ext3 /dev/vgiscsi/lviscsi			#有文件系统后 ( [格式化]后 ),  才能 mount;<BR>
+		[ 以上估计不行, 得用普通的 ext3 格式化; ]<BR>
+                mkdir /iscsi/<BR>
+		mount -t ext3 /dev/vgiscsi/lviscsi /iscsi/	        #mount 挂载; &lt;--------------server1<BR>
+		<BR>
+	server2 也神奇激活 Vg , 并也 mount 挂载，便自动同步：<BR>
+			也先手工创建 /iscsi/ 目录;<BR>
+                        pvscan<BR>
+	                vgchange -ay vgiscsi			#仅在另一台 serverX 中【激活】囊括由网络存储构成的巨大 Vg; <BR>
+	                lvs<BR>
+                        <BR>
+                        mount -t ext3 /dev/vgiscsi/lviscsi /iscsi/	                #别忘了！！！~<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+			<BR>
+-------------------------------test--------------------------------<BR>
+                        ( 除了 server2 初次 mount 时的初始化同步了第一次以外： )<BR>
+                <BR>
+		测试 server1 磁盘文件的变化,  是否同步到了 server2 上(  可以直接识别 Vg 并能够 mount 上使用了 )：<BR>
+			先在 server1 创建测试文件:<BR>
+			[root@server1 ~]# cd /iscsi/			#注意, 要自己手工创建 mount 目录;<BR>
+			[root@server1 iscsi]# echo &quot;lsjdfljasldfjlsadf&quot; &gt;&gt; /iscsi/file1 <BR>
+			<BR>
+			再看一看 server2 是否有变化: ( 没有变化!!~ )<BR>
+				<BR>
+			server2 追加变化:<BR>
+			[root@server2 iscsi]# echo &quot;hello &quot; &gt;&gt; /iscsi/file1 <BR>
+			[root@server2 iscsi]# cat /iscsi/file1 <BR>
+				lsjdfljasldfjlsadf<BR>
+				hello <BR>
+			<BR>
+			最后再看一看 server1 是否也有变化: ( 没有变化!!~ )<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建存储01------IP-SAN-02-serverX端配置指南04~之~格式化为gfs分布式文件系统！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157657-->
+<DD>
+                        配置集群, 解决上一步中, 前端 server1&amp;2 无法持续通讯+磁盘持续同步的问题!~<BR>
+<BR>
+[dlm] 分布式锁管理， ext3 就做不到，所以要用 gfs 来进行分布式文件系统e管理； <BR>
+gfs 本身带有 dlm 分布式锁管理，要求 gfs [前端] 必须首先是集群！！ 这就用到了红帽的 [集群系统]了 system-config-cluster<BR>
+<BR>
+<BR>
+集群配置<BR>
+－－－－－－－－－－－－－－－－<BR>
+清理刚才测试的挂载:<BR>
+	umount /iscsi/<BR>
+<BR>
+server1 安装一下集群配置文件e生成软件:<BR>
+	yum install system-config-cluster -y<BR>
+	<BR>
+配置前端集群的配置文件:<BR>
+	[root@server1 ~]#system-config-cluster<BR>
+		集群名字  		 new_cluster<BR>
+		    添加nodes节点      	server1.uplooking.com<BR>
+	         			        server2.uplooking.com<BR>
+<BR>
+拷贝到另一台 serverX :<BR>
+	[root@server1 ~]#scp /etc/cluster/cluster.conf node2.uplooking.com:/etc/cluster/<BR>
+<BR>
+各 serverX 均要为前端 [集群] 安装心跳服务:<BR>
+	yum install cman openais -y<BR>
+	[root@server1 ~]#service cman restart<BR>
+	[root@server2 ~]#service cman restart<BR>
+	<BR>
+设置各 serverX 均要让集群的心跳服务长期启动:<BR>
+	chkconfig cman on；<BR>
+<BR>
+-------------------------------test--------------------------------<BR>
+测试查看集群状态:<BR>
+[root@server1&amp;2 ~]# cman_tool status<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+<BR>
+分布式文件系统配置<BR>
+－－－－－－－－－－－－－－－－<BR>
+均要安装 [分布式文件系统] 软件, 以及相关模块:<BR>
+	[root@server1 ~]# yum install gfs2-utils kmod-gfs-xen（用虚机时就要加xen） -y<BR>
+	[root@server2 ~]# yum install gfs2-utils kmod-gfs-xen -y<BR>
+<BR>
+均要加载 gfs 模块:<BR>
+	[root@server1 ~]# modprobe gfs		#加载模块!!!~<BR>
+	[root@server1 ~]# modprobe gfs2		<BR>
+	<BR>
+	<BR>
+-------------------------------test--------------------------------<BR>
+	[root@server1 ~]# lsmod | grep gfs		#检查一下;<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+格式化：<BR>
+server1 尽快格式化整个 [网络存储]( 巨大的 Vg ) 所划分出来的一部分空间的 Lv ----&gt; <BR>
+	[root@server1 ~]# mkfs.gfs2 -t  new_cluster:lviscsi-table1 -p lock_dlm -j 2 /dev/vgiscsi/lviscsi			#格式化 Lv~ 并且日志空间为 2 ;<BR>
+			new_cluster（集群的名字）:(锁表起个名字)lviscsi-table1 -p lock_dlm -j 2（前端有几个节点就要多少[日志空间]） /dev/vgiscsi/lviscsi（文件位置）	<BR>
+	waiting.................很久~~~~~~<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+均要无极( 分布式 gfs2 格式 ) 挂载 Lv:<BR>
+	[root@server1 ~]# vgchange -ay vgiscsi        #在server1上？？？需要吗？？？<BR>
+	[root@server1 ~]# mount -t gfs2 -o lockproto=lock_dlm /dev/vgiscsi/lviscsi /iscsi/		#需要两边挂上!~<BR>
+<BR>
+	[root@server2 ~]# vgchange -ay vgiscsi（ 测试了一下， server2中甚至连这一步都不需要了，就能同步数据了！ 只需要用gfs2格式mount一下即可完成！~）<BR>
+                server2 也可以凭空激活 Vg 了:<BR>
+	        server2 可以 [凭空] &lt;--------------------凭借&quot;心跳线 cman 同步数据,  iscsi 协议+ dlm 分布式锁和通讯等实现!&quot;?是吗?怀疑中~<BR>
+			激活在 server1 上创建的gfs格式的巨大 Vg：<BR>
+	[root@server2 ~]# mount -t gfs2 -o lockproto=lock_dlm /dev/vgiscsi/lviscsi /iscsi/		#!!!注意 server2 上也需要手工的挂载一下!!!!~（同时，这步是能够同步的关键！！！~）<BR>
+<BR>
+<BR>
+<BR>
+-------------------------------test--------------------------------<BR>
+测试一下:<BR>
+编辑文件，看看是否能同步了变化；<BR>
+<BR>
+[root@server1 ~]# echo	1231241    &gt; /iscsi/file1<BR>
+        最后就是两边测试一下同步问题,  基本都 OK 了 !~<BR>
+        cd /iscsi/<BR>
+        echo 203840238 &gt;&gt; /iscsi/file1<BR>
+							<BR>
+							<BR>
+	[root@server2 ~]# cat /iscsi/file1 <BR>
+		203840238<BR>
+	[root@server2 ~]# echo 023840 &gt;&gt; /iscsi/file1<BR>
+	<BR>
+	<BR>
+	[root@server1 iscsi]# cat /iscsi/file1 <BR>
+		203840238<BR>
+		023840<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建存储01------IP-SAN-03-nodeX端扩容01~之~创建新网络存储！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157737-->
+<DD>
+* 扩展存储节点 node3-------- 集群节点 server1&amp;2 发现并登录 node3 存储+使用 udev 给 node3 存储创建别名+ 并在线扩容 lviscsi +1G :<BR>
+[root@node3 ~]# yum install scsi-target-utils<BR>
+[root@node3 ~]# mkdir /iscsi<BR>
+[root@node3 ~]# dd if=/dev/zero of=/iscsi/disk-node3 bs=1M count=2000   换成：创建一个正规的最好是新磁盘分区！！<BR>
+<BR>
+拷贝一个现有配置文件做修改：<BR>
+[root@node1 ~]# scp /etc/tgt/targets.conf node3.uplooking.com:/etc/tgt/<BR>
+修改一下:<BR>
+	&lt;target iqn.2012-09.com.uplooking:node3.target1&gt;<BR>
+        backing-store /iscsi/sda<BR>
+        write-cache off<BR>
+        vendor_id node3<BR>
+        product_id storage1<BR>
+        initiator-address 192.168.122.10<BR>
+        initiator-address 192.168.122.20<BR>
+	&lt;/target&gt;<BR>
+<BR>
+service tgtd start<BR>
+<BR>
+tgt-admin --show<BR>
+<BR>
+chkconfig tgtd on<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建存储01------IP-SAN-03-nodeX端扩容02~之~前端发现并登陆新存储！同时为前端创建软链接，以及创建新Pv到现Vg上+同时'在线扩容'现有的Lv ！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157732-->
+<DD>
+<BR>
+发现并登陆新存储：<BR>
+        [root@server1&amp;2 ~]# iscsiadm -m discovery -t sendtargets -p 192.168.122.250:3260<BR>
+        [root@server1&amp;2 ~]# iscsiadm -m node -T iqn.2012-09.com.uplooking:node3.target1 -l<BR>
+<BR>
+创建 软链接：<BR>
+        [root@server1 ~]# udevinfo -a -p /sys/block/sdc<BR>
+        [root@server1&amp;2 ~]# vim /etc/udev/rules.d/90-iscsi-new.rules<BR>
+		编辑文本:<BR>
+                SUBSYSTEM==&quot;block&quot;, SYSFS{size}==&quot;4096000&quot;, SYSFS{model}==&quot;storage1&quot;, SYSFS{vendor}==&quot;node1&quot;, SYMLINK+=&quot;iscsi/node1-disk&quot;<BR>
+                SUBSYSTEM==&quot;block&quot;, SYSFS{size}==&quot;4096000&quot;, SYSFS{model}==&quot;storage1&quot;, SYSFS{vendor}==&quot;node2&quot;, SYMLINK+=&quot;iscsi/node2-disk&quot;<BR>
+                SUBSYSTEM==&quot;block&quot;, SYSFS{size}==&quot;4096000&quot;, SYSFS{model}==&quot;storage1&quot;, SYSFS{vendor}==&quot;node3&quot;, SYMLINK+=&quot;iscsi/node3-disk&quot;<BR>
+        <BR>
+        start_udev<BR>
+        <BR>
+        拷贝 软链接 到另一台前端：<BR>
+                scp /etc/udev/rules.d/90-iscsi-new.rules 192.168.122.20:/etc/udev/rules.d/<BR>
+                其实只要执行一下发现和登录即可完成 sdc 的识别！！<BR>
+                start_udev        #可以不用执行；<BR>
+<BR>
+<BR>
+根据稳定的软链接 来创建 Lv :<BR>
+        [root@server1 ~]仅：<BR>
+        pvcreate /dev/iscsi/node3-disk<BR>
+        vgextend vgiscsi /dev/iscsi/node3-disk		#为 Vg 扩展 整个网络存储 ++3;<BR>
+        lvextend -L +1246M /dev/vgiscsi/lviscsi		#为 Lv 扩展部分容量 1246M;<BR>
+<BR>
+<BR>
+<BR>
+        df -h /iscsi<BR>
+        [root@server1 ~]# gfs2_grow -v /iscsi	    OK！《注意：千万不要有最尾部的反斜杠，否则就会出错not mount诡异不准确的报错！》	#使原本的 mount 处在线扩容！！<BR>
+                 此时， [root@server2 ~]#  vgchange -ay vgiscsi 神奇的刷新其它前端机子~（测试结果，不用这一步！！）<BR>
+                [root@server1 ~]# vgchange -v （测试结果，也不用这一步！！）<BR>
+        df -h /iscsi/<BR>
+<BR>
+<BR>
+崩溃警报 :  ?<BR>
+        不要在 server2 更新 gfs2_grow -v /iscsi 操作 ,  否则 server2 就是直接挂掉!!!!~~~ 因为上边 SAN 的 node3 是用 dd 的 [zero 数据填充] 来模拟一块[磁盘 node3 的 sda]的,  所以肯定会出错!<BR>
+<BR>
+<BR>
+-------------------------------test--------------------------------<BR>
+测试一下<BR>
+    原来的文件还在不；OK<BR>
+    两边都增减文字文件，看看是否同步；OK<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建存储01------IP-SAN-04-serverX端增强负载&amp;冗余01~之~发现与登录现有网络存储！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157758-->
+<DD>
+预告：<BR>
+扩展集群节点server3<BR>
+	修改打开存储节点 node1，node2，node3 的配置文件的限制访问项，解限后便在 server3 上发现并登录成功所有网络存储，并且使用 ［udev］ 设置存储别名！！～<BR>
+<BR>
+先更新一下后端存储，解禁：<BR>
+[root@node1&amp;2&amp;3 ~]# vim /etc/tgt/targets.conf	<BR>
+    initiator-address 192.168.122.10<BR>
+    initiator-address 192.168.122.20<BR>
+    initiator-address 192.168.122.30<BR>
+[root@node1&amp;2&amp;3 ~]# tgt-admin --update ALL --force            #修改限制项生效!  &lt;----------------------*****------------------<BR>
+[root@node1&amp;2&amp;3 ~]# tgt-admin --show<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+Go<BR>
+<BR>
+安装 iscsi 协议:<BR>
+        [root@server3 ~]# yum install iscsi-initiator-utils<BR>
+        [root@server3 ~]# service iscsi start<BR>
+<BR>
+发现3个现有的网络存储：<BR>
+        [root@server3 ~]# iscsiadm -m discovery -t sendtargets -p 192.168.122.100:3260     <BR>
+        [root@server3 ~]# iscsiadm -m discovery -t sendtargets -p 192.168.122.200:3260      <BR>
+        [root@server3 ~]# iscsiadm -m discovery -t sendtargets -p 192.168.122.250:3260<BR>
+登录它们：<BR>
+        [root@server3 ~]# iscsiadm -m node -T iqn.2012-02.com.uplooking:node1.target1 -l      <BR>
+        [root@server3 ~]# iscsiadm -m node -T iqn.2012-02.com.uplooking:node2.target1 -l     <BR>
+        [root@server3 ~]#  iscsiadm -m node -T iqn.2012-02.com.uplooking:node3.target1 -l<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建存储01------IP-SAN-04-serverX端增强负载&amp;冗余02~之~用Udev构建稳定软链接！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157787-->
+<DD>
+Udev<BR>
+        [root@server3 ~]# scp server1:/etc/udev/rules.d/80-iscsi.rules /etc/udev/rules.d/<BR>
+        <BR>
+        mkdir /iscsi/<BR>
+        <BR>
+        [root@server3 ~]# start_udev <BR>
+                Starting udev:                                             [  OK  ]<BR>
+<BR>
+<BR>
+-------------------------------test--------------------------------<BR>
+[root@server3 ~]# ll /dev/iscsi/<BR>
+	total 0<BR>
+	lrwxrwxrwx 1 root root 6 Feb 29 02:26 node4 -&gt; ../sdb<BR>
+	lrwxrwxrwx 1 root root 6 Feb 29 02:25 node5 -&gt; ../sdc<BR>
+	lrwxrwxrwx 1 root root 6 Feb 29 02:25 node6 -&gt; ../sdd<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建存储01------IP-SAN-04-serverX端增强负载&amp;冗余03~之~使server3成功加入前端集群中！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157808-->
+<DD>
+	使 server3 加入集群，并挂载存储成功<BR>
+<BR>
+<BR>
+[root@server3 ~]# pvscan <BR>
+<BR>
+[root@server3 ~]# vgchange -ay vgiscsi			#奇异的地方！！电动识别出一个大 Vg 出来~ （这应该是集群的同步特性的好处~）<BR>
+<BR>
+[root@server3 ~]# yum install gfs-utils kmod-gfs<BR>
+均要加载 gfs 模块:<BR>
+	[root@server1 ~]# modprobe gfs		#加载模块!!!~<BR>
+	[root@server1 ~]# modprobe gfs2	<BR>
+<BR>
+[root@server3 ~]# mkdir /iscsi				#创建需要挂载的目录；<BR>
+[root@server3 ~]# mount -t gfs2 /dev/vgiscsi/lviscsi /iscsi/		#手工挂载 奇异电动识别出的 Vg 到本地目录，以拥有电动识别出来的大存储！~<BR>
+/sbin/mount.gfs2: can't connect to gfs_controld: Connection refused<BR>
+/sbin/mount.gfs2: can't connect to gfs_controld: Connection refused<BR>
+/sbin/mount.gfs2: can't connect to gfs_controld: Connection refused<BR>
+/sbin/mount.gfs2: can't connect to gfs_controld: Connection refused<BR>
+/sbin/mount.gfs2: can't connect to gfs_controld: Connection refused<BR>
+/sbin/mount.gfs2: can't connect to gfs_controld: Connection refused<BR>
+/sbin/mount.gfs2: can't connect to gfs_controld: Connection refused<BR>
+/sbin/mount.gfs2: can't connect to gfs_controld: Connection refused<BR>
+/sbin/mount.gfs2: can't connect to gfs_controld: Connection refused<BR>
+/sbin/mount.gfs2: can't connect to gfs_controld: Connection refused<BR>
+/sbin/mount.gfs2: gfs_controld not running<BR>
+/sbin/mount.gfs2: error mounting lockproto lock_dlm<BR>
+<BR>
+<BR>
+还没有加入集群呢！！：<BR>
+        [root@server3 ~]# mkdir /etc/cluster/<BR>
+===================================================================<BR>
+在 server1 中增加好第 3 个集群项，并获得配置文件：<BR>
+[root@server1 ~]# vim /etc/cluster/cluster.conf <BR>
+[root@server1 ~]# cat /etc/cluster/cluster.conf<BR>
+&lt;?xml version=&quot;1.0&quot; ?&gt;<BR>
+&lt;cluster config_version=&quot;2&quot; name=&quot;iscsi_cluster&quot;&gt;<BR>
+        &lt;fence_daemon post_fail_delay=&quot;0&quot; post_join_delay=&quot;3&quot;/&gt;<BR>
+        &lt;clusternodes&gt;<BR>
+                &lt;clusternode name=&quot;server1.uplooking.com&quot; nodeid=&quot;1&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+                &lt;clusternode name=&quot;server2.uplooking.com&quot; nodeid=&quot;2&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+                &lt;clusternode name=&quot;server3.uplooking.com&quot; nodeid=&quot;3&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+        &lt;/clusternodes&gt;<BR>
+        &lt;cman expected_votes=&quot;1&quot; two_node=&quot;1&quot;/&gt;<BR>
+        &lt;fencedevices/&gt;<BR>
+        &lt;rm&gt;<BR>
+                &lt;failoverdomains/&gt;<BR>
+                &lt;resources/&gt;<BR>
+        &lt;/rm&gt;<BR>
+&lt;/cluster&gt;<BR>
+[root@server1 ~]# scp /etc/cluster/cluster.conf server3:/etc/cluster/<BR>
+[root@server1 ~]# scp /etc/cluster/cluster.conf server2:/etc/cluster/<BR>
+<BR>
+[root@server3 ~]# yum install cman openais<BR>
+[root@server3 ~]# ls /etc/cluster/<BR>
+cluster.conf<BR>
+[root@server3 ~]# service cman start<BR>
+Starting cluster: <BR>
+   Loading modules... done<BR>
+   Mounting configfs... done<BR>
+   Starting ccsd... done<BR>
+   Starting cman... failed<BR>
+cman not started: Can't find local node name in cluster.conf /usr/sbin/cman_tool: aisexec daemon didn't start<BR>
+                                                           [FAILED]<BR>
+[root@server3 ~]# cat /etc/cluster/cluster.conf <BR>
+&lt;?xml version=&quot;1.0&quot;?&gt;<BR>
+&lt;cluster config_version=&quot;2&quot; name=&quot;iscsi_cluster&quot;&gt;<BR>
+        &lt;fence_daemon post_fail_delay=&quot;0&quot; post_join_delay=&quot;3&quot;/&gt;<BR>
+        &lt;clusternodes&gt;<BR>
+                &lt;clusternode name=&quot;node1.uplooking.com&quot; nodeid=&quot;1&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+                &lt;clusternode name=&quot;node2.uplooking.com&quot; nodeid=&quot;2&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+                没 了<BR>
+        &lt;/clusternodes&gt;<BR>
+        &lt;cman expected_votes=&quot;1&quot; two_node=&quot;1&quot;/&gt;<BR>
+        &lt;fencedevices/&gt;<BR>
+        &lt;rm&gt;<BR>
+                &lt;failoverdomains/&gt;<BR>
+                &lt;resources/&gt;<BR>
+        &lt;/rm&gt;<BR>
+&lt;/cluster&gt;<BR>
+<BR>
+<BR>
+（不用互拷贝集群配置文件了~ server1 更新集群配置）<BR>
+===================================================================================<BR>
+* 好吧，这回在 server1 中先 update 一下集群配置（针对成员数量！）：<BR>
+[root@server1 ~]# vim /etc/cluster/cluster.conf<BR>
+[root@server1 ~]# cat /etc/cluster/cluster.conf<BR>
+&lt;?xml version=&quot;1.0&quot;?&gt;<BR>
+&lt;cluster config_version=&quot;3&quot; name=&quot;iscsi_cluster&quot;&gt;        #手动更新一下版本号，要高一点的，才会 update 成功！！！<BR>
+        &lt;fence_daemon post_fail_delay=&quot;0&quot; post_join_delay=&quot;3&quot;/&gt;<BR>
+        &lt;clusternodes&gt;<BR>
+                &lt;clusternode name=&quot;server1.uplooking.com&quot; nodeid=&quot;1&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+                &lt;clusternode name=&quot;server2.uplooking.com&quot; nodeid=&quot;2&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+                &lt;clusternode name=&quot;server3.uplooking.com&quot; nodeid=&quot;3&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+        &lt;/clusternodes&gt;<BR>
+        &lt;cman expected_votes=&quot;1&quot; two_node=&quot;1&quot;/&gt;<BR>
+        &lt;fencedevices/&gt;<BR>
+        &lt;rm&gt;<BR>
+                &lt;failoverdomains/&gt;<BR>
+                &lt;resources/&gt;<BR>
+        &lt;/rm&gt;<BR>
+&lt;/cluster&gt;<BR>
+[root@server1 ~]# ccs_tool update /etc/cluster/cluster.conf 			＃更新集群配置 一次(为数量)；  &lt;-------------------- *<BR>
+Config file updated from version 2 to 3<BR>
+<BR>
+Update complete.<BR>
+[root@server3 ~]# service cman start<BR>
+Starting cluster: <BR>
+   Loading modules... done<BR>
+   Mounting configfs... done<BR>
+   Starting ccsd... done<BR>
+   Starting cman... failed<BR>
+cman not started: two_node set but there are more than 2 nodes /usr/sbin/cman_tool: aisexec daemon didn't start<BR>
+                                                           [FAILED]<BR>
+================================================================================================<BR>
+<BR>
+<BR>
+<BR>
+* 重复上一步， server1 再次更新集群配置：（如果server3已经cman起来成功了，就不用这一步了！！）<BR>
+================================================================================================<BR>
+[root@server1 ~]# vim /etc/cluster/cluster.conf<BR>
+[root@server1 ~]# <BR>
+[root@server1 ~]# cat /etc/cluster/cluster.conf<BR>
+&lt;?xml version=&quot;1.0&quot;?&gt;<BR>
+&lt;cluster config_version=&quot;4&quot; name=&quot;iscsi_cluster&quot;&gt;<BR>
+        &lt;fence_daemon post_fail_delay=&quot;0&quot; post_join_delay=&quot;3&quot;/&gt;<BR>
+        &lt;clusternodes&gt;<BR>
+                &lt;clusternode name=&quot;server1.uplooking.com&quot; nodeid=&quot;1&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+                &lt;clusternode name=&quot;server2.uplooking.com&quot; nodeid=&quot;2&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+                &lt;clusternode name=&quot;server3.uplooking.com&quot; nodeid=&quot;3&quot; votes=&quot;1&quot;&gt;<BR>
+                        &lt;fence/&gt;<BR>
+                &lt;/clusternode&gt;<BR>
+        &lt;/clusternodes&gt;<BR>
+        &lt;cman expected_votes=&quot;1&quot; /&gt;<BR>
+        &lt;fencedevices/&gt;<BR>
+        &lt;rm&gt;<BR>
+                &lt;failoverdomains/&gt;<BR>
+                &lt;resources/&gt;<BR>
+        &lt;/rm&gt;<BR>
+&lt;/cluster&gt;                                                                                                                                                                                    ＃更新集群配置第 二 次(为数量)；  &lt;-------------------- *<BR>
+[root@server1 ~]# ccs_tool update /etc/cluster/cluster.conf		#根据更改后的配置文件，手动更新一下 cman通讯中 的［集群数量］；以当前手动编辑后为主生效！<BR>
+Config file updated from version 3 to 4<BR>
+<BR>
+Update complete.<BR>
+[root@server3 ~]# service cman start		#再次尝试开启server3 的 cman 服务，应用最新、生效了的集群配置！<BR>
+Starting cluster: <BR>
+   Loading modules... done<BR>
+   Mounting configfs... done<BR>
+   Starting ccsd... done<BR>
+   Starting cman... done<BR>
+   Starting daemons... done<BR>
+   Starting fencing... done<BR>
+                                                           [  OK  ]<BR>
+================================================================================================<BR>
+<BR>
+<BR>
+-------------------------------test--------------------------------<BR>
+查看集群情况:<BR>
+[root@server3 ~]# cman_tool status<BR>
+Version: 6.2.0<BR>
+Config Version: 4 或 3<BR>
+Cluster Name: iscsi_cluster<BR>
+Cluster Id: 26292<BR>
+Cluster Member: Yes<BR>
+Cluster Generation: 12<BR>
+Membership state: Cluster-Member<BR>
+Nodes: 3<BR>
+Expected votes: 1<BR>
+Total votes: 3<BR>
+Quorum: 2  <BR>
+Active subsystems: 7<BR>
+Flags: Dirty <BR>
+Ports Bound: 0  <BR>
+Node name: server3.uplooking.com<BR>
+Node ID: 3<BR>
+Multicast addresses: 239.192.102.27 <BR>
+Node addresses: 172.16.1.3 <BR>
+[root@server3 ~]# cat /etc/cluster/cluster.conf<BR>
+此时应该3个节点都出来了！！！OK<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+[root@server3 ~]# mount -t gfs2 /dev/vgiscsi/lviscsi /iscsi/<BR>
+/sbin/mount.gfs2: error mounting /dev/mapper/vg--iscsi-lv--iscsi on /iscsi: Invalid argument<BR>
+<BR>
+<BR>
+<BR>
+-------------------------------test--------------------------------<BR>
+查看日志<BR>
+[root@server3 ~]# cat /var/log/messages <BR>
+Feb 29 02:45:54 server3 kernel: GFS2: fsid=: Trying to join cluster &quot;lock_dlm&quot;, &quot;iscsi_cluster:table1&quot;<BR>
+Feb 29 02:45:54 server3 kernel: dlm: Using TCP for communications<BR>
+Feb 29 02:45:54 server3 kernel: dlm: got connection from 1<BR>
+Feb 29 02:45:54 server3 kernel: dlm: got connection from 2<BR>
+Feb 29 02:45:54 server3 kernel: GFS2: fsid=iscsi_cluster:table1.2: Joined cluster. Now mounting FS...<BR>
+Feb 29 02:45:55 server3 kernel: GFS2: fsid=iscsi_cluster:table1.2: can't mount journal #2<BR>
+Feb 29 02:45:55 server3 kernel: GFS2: fsid=iscsi_cluster:table1.2: there are only 2 journals (0 - 1)<BR>
+<BR>
+查看当前 server1 中的网络存储 Lv mount 中的日志空间数设置:<BR>
+[root@server1 ~]# gfs2_tool journals /iscsi		#日志空间！ 搜索一下当前 IP-SAN 中的已有的［日志空间数量］；<BR>
+journal1 - 128MB                                                                            #又是那个大问题----------&gt;别把最尾部的斜杠 /iscsi/ 也加进去，否则会诡异的报错！！！<BR>
+journal0 - 128MB<BR>
+2 journal(s) found.<BR>
+-------------------------------test--------------------------------<BR>
+<BR>
+<BR>
+<BR>
+对症下药 之 ++增加日志空间数:<BR>
+[root@server1 ~]# gfs2_jadd -j 1 /iscsi			#手动为 /iscsi/ （代表从IP-SAN中mount上来的所有东东）新增加 1 个［日志空间数量］（gfs分布式集群的通讯成员数量）！！！<BR>
+Filesystem:            /iscsi<BR>
+Old Journals           2<BR>
+New Journals           3<BR>
+<BR>
+[root@server3 ~]# mount -t gfs2 /dev/vgiscsi/lviscsi /iscsi/<BR>
+OK!!!!!!!!!!!!!<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+-------------------------------test--------------------------------<BR>
+[root@server3 ~]# cat /iscsi/file1 <BR>
+iscsi test<BR>
+-------------------------------test--------------------------------<BR>
+完成100%！<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建存储01------IP-SAN-05-附加值增减设备！</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157837-->
+<DD>
+前端：<BR>
+        首先，如果直接移除前端的某台计算机后，整个IP-SAN无法访问，为何？<BR>
+                解决办法--- 情况1（确实无法使用网络存储了~）：<BR>
+                        1 。 目前只知道需要尽快恢复被移除的主机，令其回归原位后立刻恢复 IP-SAN；<BR>
+                        2 。 修改一下前端的集群配置文件 /etc/cluster/cluster.conf<BR>
+                                        效果：手动删减一个集群节点后，。。。。没试~这突然无响应事件到底是咋回事？？<BR>
+<BR>
+                解决办法--- 情况2（网络存储又好了时~）：<BR>
+                        不知为何，突然又恢复 IP-SAN 并且可以访问了（在server2宕机的情况下！）；<BR>
+                <BR>
+                * 最后我试了一下全部前端节点重启，结果是全部前端节点卡死，无法关机！！！  只见有大量的GFS2提示 GFS2：fsid=new_cluster：lviscsi-table1.0：fatal： I/O error……about to withdraw this file system； telling LM to withdraw后无…… 完全无法关机，除了直接长按主机电源外！<BR>
+                                为何？？一重启前端，IP-SAN 就全部崩溃吗？        <BR>
+        <BR>
+后端存储端：<BR>
+        如何安全拔除其中一台存储节点？？并能保证数据不丢失？<BR>
+        如何针对后端存储节点做高可用和完整备份？？<BR>
+        <BR>
+<BR>
+IP-SAN 总结论是？：<BR>
+        * 会不会是 IP-SAN 不支类似持热插拔式的灵活移除添加节点呢？？整个体系架构就如此不稳定吗？？<BR>
+<BR>
+<BR>
+<BR>
+想到最后的 IP-SAN 外的办法有：<BR>
+        分布式存储如何，能取代 IP-SAN 方案吗？？：<BR>
+        未知； <BR>
+        灵活拔插+有很高的稳定性？？<BR>
+        Google 是这类存储 架构吗？<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+<DT>Raid</DT>
+<!--property:icon_internal=lock-->
+<!--property:date_created=1363157192-->
+<!--property:date_modified=1363157192-->
+<DD>
+<DL>
+<DT>标准化作业</DT>
+<!--property:icon_internal=new_dir-->
+<!--property:date_created=1363157213-->
+<!--property:date_modified=1363157213-->
+<!--property:expanded-->
+<DD>
+<DL>
+<DT>创建Raid------假设Raid5磁盘阵列中有成员损坏时</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363158487-->
+<DD>
+前提假设：<BR>
+此时已经有一个 spares 的备用磁盘自动顶上了；<BR>
+<BR>
+首先，要更换硬件：<BR>
+1. 购买相似品牌、容量、性能的硬盘产品回来；（必须<b>支持<u>热插拔</u></b>）<BR>
+<BR>
+2. 查看电脑，确认是哪块硬盘损坏；<BR>
+<BR>
+3. 拔出损坏旧硬盘；替换新购置的硬盘；<BR>
+<BR>
+再次，要对当前报警的服务器，手动进行一些设置：<BR>
+4. 修改 /etc/mdadm.conf 配置中，DEVICE 的 /dev/sda~c 为自动顶替上去的备盘 /dev/sdd ；	#如果你能写出一个自动Shell，算你牛！<BR>
+<BR>
+5. 执行命令令新购置的磁盘，例如 /dev/sde 也加入阵列的备盘中，命令如下。	#此处无法写出一个自动Shell了，必须手动准备，因为你得先去购买新磁盘设备，才能有效开始这一步Shell操作！<BR>
+    mdadm /dev/md0 -a /dev/sde  <BR>
+<BR>
+最后，填写报告并完成汇报：<BR>
+6. 管理员写报告，记录当天磁盘更换事件，并汇报此事儿；<BR>
+<BR>
+危机管理提醒：<BR>
+注意：备盘自动顶上时的步骤中，只要此时服务器未重启，磁盘阵列就一切正常； 一旦重启服务器时，阵列中就会立刻缺失一块磁盘，就相当于硬盘损坏后没有任何备盘自动顶上一样！ <BR>
+解决办法：<BR>
+        立刻手动改一下 mdadm.conf 配置文件 DEVICE 的 /dev/sda~c 为自动顶替上去的备盘 /dev/sdd，再度重启，即可解决（之前自动顶上的磁盘，再度生效了，并永久确认此新的磁盘阵列配置）！<BR>
+<BR>
+<BR>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+<DT>集群</DT>
+<!--property:icon_internal=folder-->
+<!--property:date_created=1363157141-->
+<!--property:date_modified=1363157141-->
+<DD>
+<DL>
+<DT>Xen</DT>
+<!--property:icon_internal=lock-->
+<!--property:date_created=1363157192-->
+<!--property:date_modified=1363157192-->
+<DD>
+<DL>
+<DT>标准化作业</DT>
+<!--property:icon_internal=new_dir-->
+<!--property:date_created=1363157213-->
+<!--property:date_modified=1363157213-->
+<!--property:expanded-->
+<DD>
+<DL>
+<DT>创建集群01-------初步</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363158005-->
+<DD>
+前提假设：<BR>
+    你已经配置好了 YUM 源；<BR>
+<BR>
+<BR>
+安装集群版的内核：<BR>
+    yum install kernel-xen<BR>
+<BR>
+其次，设置好启动项为集群内核Xen启动：<BR>
+vim /boot/grub/grub.conf<BR>
+    编辑文本:<BR>
+    default=0<BR>
+<BR>
+然后，重启系统进入新内核：<BR>
+reboot<BR>
+<BR>
+-------------------------------------------------------------------------<BR>
+安装Xen系列软件:<BR>
+        yum install xen libvirt virt-manager virt-viewer libvirt-devel<BR>
+<BR>
+立刻检查一下是不是有两个服务已经开启了:<BR>
+        service xend status|重启系统后自动开启;<BR>
+        service libvirtd status|重启系统后自动开启;<BR>
+<BR>
+<BR>
+危机管理提醒：<BR>
+    将来需要安装的内核还有:<BR>
+        检查 虚机 Director 的内核安装是否齐全：<BR>
+            rpm -qa | grep kernel<BR>
+			<BR>
+        需要先装 kernel-xen-devel-2.6.18.194.el5 +和+ kernel-headers-2.6.18-194.el5 --------&gt; 如果我没有装好这些包,  就手动安装!!!<BR>
+			yum install kernel-devel<BR>
+			yum install kernel-headers<BR>
+			<BR>
+		  	还有俩需要安装:<BR>
+		 		yum install kernel-xen-devel  <BR>
+		 		yum install kernel-PAE-devel<BR>
+<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建集群02-------踏步</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363158026-->
+<DD>
+前提假设：<BR>
+完成了初步, 并已经拥有了 Xen 核心环境；<BR>
+<BR>
+<BR>
+创建一个 Lv 虚拟存储设备：<BR>
+	总体最低要求:<BR>
+            50G --------------- /dev/vg001/  	#要求此 Vg001 卷组最小是 &gt;=50G 大小;<BR>
+			        /dev/vg001/rhel5u5	#要求此 Lv 逻辑卷是 20G 大小; 注意先不用格式化它;<BR>
+	<BR>
+	思路:<BR>
+		创建 1 个分区 sda5 (50G~100G大小)<BR>
+			fdisk /dev/sda<BR>
+                        分出一个 &gt;=50G 以上的分区 /dev/sda5<BR>
+			<BR>
+		将分区都变成 Pv;<BR>
+			pvcreate /dev/sda5			                #(&gt;=50G 大小)<BR>
+			pvdisplay<BR>
+			<BR>
+		将 /dev/sda5 这个 50G 大小的 Pv 挂载到 Vg 之 vg001 中;<BR>
+			vgcreate vg001 /dev/sda5		                #(50G大小)<BR>
+			vgdisplay<BR>
+			<BR>
+		建立逻辑卷 Lv:<BR>
+			lvcreate -L 20000M -n rhel5u5 vg001	#(20G大小)<BR>
+			lvdisplay<BR>
+			<BR>
+		注意先不用格式化它 mkfs.ext3 /dev/vg001/rhel5u5<BR>
+		<BR>
+		挂载它,完成!<BR>
+			mount /dev/vg001/rhel5u5 /mnt<BR>
+<BR>
+<BR>
+新建 xen 的一个虚拟机( 宿主 )：<BR>
+	virt-install -r( 给多少内存 1G ) 1024 -n rhel5u5  --disk path=/dev/vg001/rhel5u5 -l ftp://192.168.10.3/iso/<BR>
+<BR>
+为刚新建的宿主主机初步配置一些共有配置：<BR>
+	统一配置：<BR>
+            * 一个 YUM 源；<BR>
+            * 一个 hosts 解析记录；<BR>
+            * 统一的内桥的 192.168.122.0/24 网段的一个 IP 地址以及主机名；<BR>
+            * 调整一下宿主主机 /etc/inittab 修改 id:5------&gt;3; 此时宿主主机( 即/dev/vg001/rhel5u5! ) 也就变成文本登录模式;<BR>
+            * 把 sendmail 服务停掉，包括真机自身！！~ chkconfig sendmail off<BR>
+        <BR>
+<BR>
+        查看虚拟机当前状态:<BR>
+            virsh list<BR>
+	启动虚拟机:<BR>
+            virsh start rhel5u5<BR>
+            virsh list<BR>
+	关闭虚拟机:<BR>
+            virsh shutdown rhel5u5<BR>
+<BR>
+新建 x 个快照：(每个快照 2G 大小)<BR>
+	lvcreate -s -L 2000M -n rhel5u5-1 /dev/vg001/rhel5u5<BR>
+                                                    ......<BR>
+        复制并配置 x 台[快照虚拟机],  复制刚创建的宿主主机的 [配置文件] 出来，并复制以创建快照虚拟机！<BR>
+        cd  /etc/xen<BR>
+        cp rhel5u5 rhel5u5-1.......<BR>
+        vim rhel5u5-1 <BR>
+			编辑文本:<BR>
+			name = &quot;rhel5u5-1&quot;						                #改名!~<BR>
+			uuid = &quot;a3fa515c-c99c-c958-8aa2-3c16b920d001&quot;	#修改 UUID 递增 01;<BR>
+			maxmem = 128		    #快照之虚拟机只用很小的内存!!! 128M.<BR>
+			memory = 128		    #快照之虚拟机只用很小的内存!!! 128M.<BR>
+			vcpus = 1<BR>
+			bootloader = &quot;/usr/bin/pygrub&quot;<BR>
+			on_poweroff = &quot;destroy&quot;<BR>
+			on_reboot = &quot;restart&quot;<BR>
+			on_crash = &quot;restart&quot;<BR>
+			vfb = [ &quot;type=vnc,vncunused=1,keymap=en-us&quot; ]<BR>
+			disk = [ &quot;phy:/dev/vg001/rhel5u5-1,xvda,w&quot; ]		                        #对应到 [ LV 快照 ] 的快照设备文件中; xvda 是硬盘设备名字;<BR>
+			vif = [ &quot;mac=00:16:36:3e:3f:10,bridge=virbr0,script=vif-bridge&quot; ]	#修改网卡之 MAC 递增01;<BR>
+			<BR>
+			以此类推新增 6 个新服务器....<BR>
+				................<BR>
+<BR>
+重启一下 Xen 服务之 快照虚拟机【服务器】:<BR>
+            virsh list<BR>
+            virsh start rhel5u5-1<BR>
+            virsh list<BR>
+<BR>
+<BR>
+危机管理提醒：<BR>
+    都 ping 一下 192.168.122.1 ,  看看都通不通;<BR>
+<BR>
+    如何查看自己 CPU 是否支持虚拟化软件:<BR>
+        cat /proc/cpuinfo<BR>
+    <BR>
+    修改集群的网卡结构（例如双网卡）, 只是重启 [虚拟机] &quot;机器们&quot; 可不管用;  <BR>
+    需要用专门的虚拟机命令 virsh shutdown rhel5u5-x 再启动 virsh start rhel5u5-x 才管用!!!<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建集群03-------走你</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363158042-->
+<DD>
+前提假设：<BR>
+    创建了所有 Xen 环境以及虚拟主机群后；<BR>
+<BR>
+给虚拟机仿真一个 /dev/hdc 的 [新设备] 供其使用：<BR>
+	xm block-attach 7 file://var/ftp/rhel5_5.iso /dev/hdc r (只读)<BR>
+        xen 的虚机 7 号（用 virsh show 查询）， 只需要直接  mount /dev/hdc /mnt  即可立刻用上 iso 镜像;<BR>
+<BR>
+安装 LVS 中的添加/ 修改/ 删除 [策略] 的工具：<BR>
+	基于内核<BR>
+	rpm -ivh /mnt/Cluster/ipvsadm-1.24-10.i386.rpm		# Xen 虚机之[分发器]上安装~ 用于进行策略配置;<BR>
+	<BR>
+	例如：如何添加策略:<BR>
+		首先，要求先开好转发功能,  这个转发功能是属于内核 iptables 的；<BR>
+			echo 1 &gt; /proc/sys/net/ipv4/ip_forward<BR>
+		<BR>
+		ipvsadm -A -t 1.1.1.1:80 -s rr 			#-A代表 [服务] !~ 添加一个虚拟 [服务] , -t 添加一个 TCP 服务;  rr 轮询(轮流)!  [此处的 ip 地址是“浮动资源 IP”吧！哈哈~]<BR>
+		<BR>
+		ipvsadm -a -t 1.1.1.1:80 -r 172.16.1.1:80 -m		#-a代表 [Server]!~添加一个虚拟 [Server]  ;    -r 添加一个(远程)[server]的 Ip ; -m 伪装 NAT;<BR>
+		<BR>
+		ipvsadm -a -t 1.1.1.1:80 -r 172.16.1.2:80 -m		#同上;<BR>
+		<BR>
+		ipvsadm -Ln		                                                        #查看策略情况;<BR>
+<BR>
+<BR>
+危机管理提醒：<BR>
+    [模板] 和 [快照] 不能同时使用!!!!!!   <BR>
+    要用 [ 快照虚拟机 ],  就不要开 [ 模板虚拟机 ];<BR>
+    反过来也一样!!;<BR>
+<BR>
+<BR>
+
+</DD>
+<DT>创建集群之-------Conga+爆头</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363158071-->
+<DD>
+1 . 先配置好:<BR>
+	0 * YUM<BR>
+	1 * NAS<BR>
+	2 * MOUNT<BR>
+	2 * httpd<BR>
+	3 * 配置好 host+hostname!~<BR>
+<BR>
+2 . 为 2 * httpd 安装被管理组件 ricci:<BR>
+	service httpd startXXXXXXNO!<BR>
+        <BR>
+        yum install ricci -y<BR>
+	<BR>
+	service ricci start<BR>
+<BR>
+2 . 为 1 * NAS 安装管理组件 luci:<BR>
+	service nfs startXXXXXXXXXXXXXNO!<BR>
+        <BR>
+	yum install luci<BR>
+	        初始化 luci 管理平台:<BR>
+		luci_admin init回车;<BR>
+		输入密码 666666;<BR>
+                <BR>
+	        service luci restart    #注意:luci访问地址:https://node3.uplooking.com:8084 或 https://192.168.122.30:8084<BR>
+	<BR>
+	please wait.......<BR>
+	<BR>
+	登录:<BR>
+		admin<BR>
+		666666<BR>
+	<BR>
+        开始通过 Web 界面配置集群：<BR>
+		service ricci restart		#它会自动给自己注册，以后都会开机自动启动此服务！<BR>
+		大前提是： 启动节点端的 ricci 服务，开启 ssl 通讯！！<BR>
+<BR>
+无法启动 service, 为什么?:<BR>
+    试一试:<BR>
+    安装 gcc*xxxxxxxxxxxxxxxxxxxx也不是这个问题！！！<BR>
+    安装 kernels 一堆重启看xxxxxxxxxxxxxxxx\不是这个问题！！！<BR>
+问题在这：<BR>
+        node3.必须手动先起来 nfs 服务，否则一切都是徒劳！！！！！妈的，弄了我一早上~原因是集群3包，但不包启动node3的nfs！！！就是这样~~~气人吧？！~~<BR>
+        <BR>
+<BR>
+注意：<BR>
+    需要永久启动的服务有：<BR>
+    node0：<BR>
+            chkconfig cman on<BR>
+    node1 &amp; 2：<BR>
+            无，基本都会自动起来；例如包括 ricci；<BR>
+    node3：<BR>
+            chkconfig luci on<BR>
+            chkconfig nfs on<BR>
+<BR>
+<BR>
+<BR>
+<BR>
+        爆头 之 <BR>
+                加密文件共享:<BR>
+                <BR>
+                * 先在 luci 管理中 （web管理）:<BR>
+                        选中其中一台node1 节点管理项，点击进去~<BR>
+                        apache-cluster 选项：<BR>
+                        ........<BR>
+                        Enter a node hostname from the host cluster 	#填写当前 Web 的主机名;<BR>
+                        Enter a node hostname from the hosted (virtual) cluster 	#填写需要爆头指令的真机!!<BR>
+                        .........<BR>
+                    <BR>
+                        点击 retrived cluster------&gt; create (不是 apply);<BR>
+                                然后会自动生成 .key 文件, 就在 node1和node2上的   /etc/cluster/fence_xvm.key<BR>
+                                        详细的操作过程：<BR>
+                                        + 新增 1 个？还是2个 fence 爆头卡电源？，反正先添加一下吧；<BR>
+                                        + 点击 cluster ------------ 进入其第二项“Fence”标签里；填写一下当前 主 node1.uplooking.com 和 node0 仲裁机，立刻点击倒数第二个按钮“Retrieve cluster nodes”即可！<BR>
+                                            看一下截图吧：<BR>
+                                            <BR>
+                                            然后在 node1 上到找到key（/etc/cluster/fence_xvm.key）并拷贝给真机 node0 之仲裁！<BR>
+                                            。。。<BR>
+                                立刻 scp 到 真机 (它将扮演仲裁!)	<BR>
+                    						<BR>
+                * 真机 监听并仲裁<BR>
+                        要求真机安装好的 cman ；<BR>
+                        fence_xvmd -I eth0 -L /etc/cluster/fence_xvm.key -d                #在真机上执行，开始监听仲裁集群内的爆头操作~<BR>
+                    <BR>
+                * 开始爆头：<BR>
+                        fence_xvm -H rhel5u5-2 -d            #重启node2！<BR>
+                    经过我重重测试，原来爆头要在 仲裁 处发送！！！！！成功OK！~<BR>
+                    <BR>
+                    <BR>
+<BR>
+<BR>
+<BR>
+<BR>
+备注：<BR>
+    如果做下一个实验，如何删除完 Conga 组件？<BR>
+            yum remove ricci<BR>
+            rm -rf /var/lib/ricci/<BR>
+        ...??<BR>
+            yum remove cman rgmanager<BR>
+<BR>
+<BR>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+<DT>服务</DT>
+<!--property:icon_internal=folder-->
+<!--property:date_created=1363158632-->
+<!--property:date_modified=1363158632-->
+<DD>
+<DL>
+<DT>FTP服务</DT>
+<!--property:icon_internal=folder-->
+<!--property:date_created=1363157141-->
+<!--property:date_modified=1363157141-->
+<DD>
+<DL>
+<DT>VSFTP</DT>
+<!--property:icon_internal=lock-->
+<!--property:date_created=1363157192-->
+<!--property:date_modified=1363157192-->
+<!--property:expanded-->
+<DD>
+<DL>
+<DT>标准化作业</DT>
+<!--property:icon_internal=new_dir-->
+<!--property:date_created=1363157213-->
+<!--property:date_modified=1363157213-->
+<!--property:expanded-->
+<DD>
+<DL>
+<DT>搭建VSFTP</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363158293-->
+<DD>
+前提假设：<BR>
+你已经配置好了YUM源；<BR>
+<BR>
+			<BR>
+                                    VSFTP (匿名模式)：<BR>
+首先，编辑配置文件：<BR>
+1. vim /etc/vsftpd/vsftpd.conf<BR>
+            编辑文本：<BR>
+            开启两个选项: ( 去掉已经写好的默认注释# )<BR>
+            1 . 	anon_upload_enable=YES<BR>
+            2 . 	anon_mkdir_write_enable=YES<BR>
+<BR>
+再次，需要给[目录]设置目录权限：<BR>
+2. chmod o+w /var/ftp/pub/		&lt;----------------w-------------- * 为 [子目录] 设置w权限<BR>
+<BR>
+最后，重启服务：<BR>
+3. service vsftpd restart；<BR>
+<BR>
+开始测试:<BR>
+        put dddddd.txt -o pub/dddddddddd.aaa		#指定上传<BR>
+<BR>
+危机管理提醒：<BR>
+<BR>
+<BR>
+			<BR>
+                                    VSFTP (本地用户模式)：<BR>
+首先，先改 FTP 的家目录：<BR>
+        第一种方法:<BR>
+		修改用户  FTP 的家目录<BR>
+		vim /etc/passwd				#直接对 FTP 服务修改 [整个 FTP 家目录];<BR>
+	<BR>
+	第二种方法:<BR>
+		修改配置文件, 加一个参数<BR>
+		vim /etc/vsftpd/vsftpd.conf<BR>
+			编辑文本：<BR>
+			anon_root=/home/		#+此参数是 FTP 的另一种对 [整个 FTP 家目录] 的修改~<BR>
+<BR>
+测试，已经可以本地用户的上传下载：<BR>
+useradd robin<BR>
+lftp -u robin,密码  192.168.6.254          #不交互登录 FTP，上传下载都默认在robin的家目录下，并且此时会拥有了很多的 robin 权限的FTP 操作；<BR>
+        ls -a<BR>
+        <BR>
+最后，重启服务：<BR>
+3. service vsftpd restart；<BR>
+<BR>
+4. 开始测试:<BR>
+        put dddddd.txt -o pub/dddddddddd.aaa		#指定上传<BR>
+<BR>
+危机管理提醒：<BR>
+其它配置命令解释:<BR>
+		anon_upload_enable=YES		开启上传;<BR>
+		anon_mkdir_write_enable=YES	开启创建目录;<BR>
+		anon_umask=022			设置上传文件的权限掩码;<BR>
+		anon_other_write_enable=YES	允许删除;<BR>
+<BR>
+<BR>
+<BR>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+<DT>base</DT>
+<!--property:icon_internal=folder-->
+<!--property:date_created=1363157141-->
+<!--property:date_modified=1363157141-->
+<DD>
+<DL>
+<DT>test</DT>
+<!--property:icon_internal=lock-->
+<!--property:date_created=1363157192-->
+<!--property:date_modified=1363157192-->
+<!--property:expanded-->
+<DD>
+<DL>
+<DT>标准化作业</DT>
+<!--property:icon_internal=new_dir-->
+<!--property:date_created=1363157213-->
+<!--property:date_modified=1363157213-->
+<!--property:expanded-->
+<DD>
+<DL>
+<DT>新节点</DT>
+<!--property:icon_internal=blank-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1363157366-->
+<!--property:date_modified=1363157549-->
+<DD>
+<BR>
+<BR>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+<DT>6</DT>
+<!--property:icon_internal=help-->
+<!--property:syntax_highlight=sh-->
+<!--property:date_created=1357483796-->
+<!--property:date_modified=1357483796-->
+</DL>
+
+</DD>
+</DL>
+
+</DD>
+</DL>
+</BODY>
+</HTML>
