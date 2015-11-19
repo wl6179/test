@@ -32,4 +32,7 @@ class caculator {
 	    return $a + $b;
 	}
 }
-//assertClassHasStaticAttribute($attributeName, $className) 仅仅只能用于PHPUnit框架中！
+//assertClassHasStaticAttribute($attributeName, $className) 仅只能用于PHPUnit框架中！（当前PHP环境中不可用！）
+//只能使用PHP内置的断言函数，仅此一个：
+$test_result = assert('2 < 1', '2 is less than 1');
+var_dump($test_result);
